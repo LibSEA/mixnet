@@ -14,13 +14,11 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 */
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/LibSEA/mixnet/entry"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +33,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("entry called")
+		entry.Run(entry.Options{Port: "localhost:8080"})
 	},
 }
 
