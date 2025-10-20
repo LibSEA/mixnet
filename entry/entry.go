@@ -19,7 +19,9 @@ package entry
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
+	"os"
 
 	"github.com/LibSEA/mixnet/session"
 )
@@ -28,22 +30,29 @@ type Options struct {
 	Port string
 }
 
+var log *slog.Logger
+
+func init() {
+	log = slog.New(slog.NewTextHandler(os.Stdout, nil))
+}
+
 func handle(s *session.Session) {
 	defer s.Close()
 
 	err := s.ServerHandshake()
 	if err != nil {
-		fmt.Println(err)
-	}
-
-	msg, err := s.ReadMessage()
-	if err != nil {
-		fmt.Println("REadMessage failed", err)
+		log.Info("ServerHandshake failed.", "error", err)
 		return
 	}
 
-	fmt.Println("got it:", string(msg))
-
+	for {
+		msg, err := s.ReadMessage()
+		if err != nil {
+			fmt.Println("REadMessage failed", err)
+			return
+		}
+		fmt.Println(string(msg))
+	}
 }
 
 func Run(opts Options) {
@@ -60,8 +69,7 @@ func Run(opts Options) {
 		}
 		conn, err := ln.Accept()
 		if err != nil {
-
-			fmt.Println("failed to accept connection")
+			slog.Error("error calling accept", "error", err)
 			cf++
 			continue
 		}
