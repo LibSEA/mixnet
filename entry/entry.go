@@ -30,18 +30,16 @@ type Options struct {
 	Port string
 }
 
-var log *slog.Logger
-
-func init() {
-	log = slog.New(slog.NewTextHandler(os.Stdout, nil))
+type cmd struct {
+	logger *slog.Logger
 }
 
-func handle(s *session.Session) {
+func (c *cmd) handle(s *session.Session) {
 	defer s.Close()
 
 	err := s.ServerHandshake()
 	if err != nil {
-		log.Info("ServerHandshake failed.", "error", err)
+		c.logger.Info("ServerHandshake failed.", "error", err)
 		return
 	}
 
@@ -55,26 +53,30 @@ func handle(s *session.Session) {
 	}
 }
 
-func Run(opts Options) {
+func Run(opts Options) int {
+	var c = cmd{
+		logger: slog.New(slog.NewTextHandler(os.Stdout, nil)),
+	}
 	ln, err := net.Listen("tcp", opts.Port)
 	if err != nil {
-		panic("failed to listen")
+		c.logger.Error("couldn't listen", "host:port", opts.Port)
+		return 1
 	}
 
 	cf := 0
 
 	for {
 		if cf > 10 {
-			panic("error accepting connections")
+			c.logger.Error("failed calling accept to many times.")
+			return 1
 		}
 		conn, err := ln.Accept()
 		if err != nil {
-			slog.Error("error calling accept", "error", err)
+			c.logger.Error("error calling accept", "error", err)
 			cf++
 			continue
 		}
 		cf = 0
-		go handle(session.New(conn))
+		go c.handle(session.New(conn))
 	}
-
 }

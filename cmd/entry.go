@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
+	"os"
+
 	"github.com/LibSEA/mixnet/entry"
 	"github.com/spf13/cobra"
 )
@@ -33,20 +35,10 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		entry.Run(entry.Options{Port: "localhost:8080"})
+		os.Exit(entry.Run(entry.Options{Port: "localhost:80"}))
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(entryCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// entryCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// entryCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
