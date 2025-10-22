@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 
 	"github.com/flynn/noise"
@@ -28,8 +29,9 @@ func init() {
 }
 
 type Session struct {
-	b  []byte
 	c  net.Conn
+	cs *noise.CipherSuite
+	kp *noise.DHKey
 	rx *noise.CipherState
 	tx *noise.CipherState
 }
@@ -41,18 +43,17 @@ size then the payload.
 */
 func New(conn net.Conn) *Session {
 	return &Session{
-		b: make([]byte, 655535),
 		c: conn,
 	}
 }
 
-func (s *Session) ReadMessage() ([]byte, error) {
-	l, err := s.read()
+func (s *Session) ReadMessage(out []byte) ([]byte, error) {
+	msg, err := s.read(out)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read message in ReadMessage. %w", err)
 	}
 
-	b, err := s.rx.Decrypt(nil, nil, s.b[0:l])
+	b, err := s.rx.Decrypt(nil, nil, msg)
 
 	if err != nil {
 
@@ -62,13 +63,13 @@ func (s *Session) ReadMessage() ([]byte, error) {
 	return b, nil
 }
 
-func (s *Session) WriteMessage(in []byte) error {
-	msg, err := s.tx.Encrypt(s.b[:2], nil, in)
+func (s *Session) WriteMessage(out []byte, in []byte) error {
+	msg, err := s.tx.Encrypt(out, nil, in)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data for writing. %w", err)
 	}
 
-	err = s.write(len(msg))
+	err = s.write(msg)
 	if err != nil {
 		return fmt.Errorf("failed to write message data in WriteMessage. %w", err)
 	}
@@ -76,26 +77,42 @@ func (s *Session) WriteMessage(in []byte) error {
 	return nil
 }
 
-func (s *Session) read() (uint16, error) {
-	_, err := io.ReadFull(s.c, s.b[0:2])
+func (s *Session) read(out []byte) ([]byte, error) {
+	var lb = [2]byte{0, 0}
+	var ls = lb[:]
+
+	_, err := io.ReadFull(s.c, ls)
 	if err != nil {
-		return 0, fmt.Errorf("failed to read length message. %w", err)
+		return nil, fmt.Errorf("failed to read length message. %w", err)
 	}
 
-	l := binary.BigEndian.Uint16(s.b[0:2])
+	l := binary.BigEndian.Uint16(ls)
 
-	_, err = io.ReadFull(s.c, s.b[0:l])
+	var ret = out[:l]
+
+	_, err = io.ReadFull(s.c, ret)
 	if err != nil {
-		return 0, fmt.Errorf("failed to read message data. %w", err)
+		return nil, fmt.Errorf("failed to read message data. %w", err)
 	}
 
-	return l, nil
+	return ret, nil
 }
 
-func (s *Session) write(l int) error {
-	binary.BigEndian.PutUint16(s.b, uint16(l-2))
+func (s *Session) write(payload []byte) error {
+	if len(payload) > math.MaxInt16 {
+		return fmt.Errorf("message payload too large.")
+	}
 
-	_, err := s.c.Write(s.b[0:l])
+	var lb = [2]byte{0, 0}
+	var ls = lb[:]
+
+	binary.BigEndian.PutUint16(ls, uint16(len(payload)))
+
+	_, err := s.c.Write(ls)
+	if err != nil {
+		return fmt.Errorf("error writing message len. %w", err)
+	}
+	_, err = s.c.Write(payload)
 	if err != nil {
 		return fmt.Errorf("error writing message. %w", err)
 	}
@@ -103,13 +120,13 @@ func (s *Session) write(l int) error {
 	return nil
 }
 
-func (s *Session) handshakeRead(hs *noise.HandshakeState) error {
-	l, err := s.read()
+func (s *Session) handshakeRead(out []byte, hs *noise.HandshakeState) error {
+	msg, err := s.read(out)
 	if err != nil {
 		return fmt.Errorf("error reading from socket in handshakeRead. %w", err)
 	}
 
-	_, s.rx, s.tx, err = hs.ReadMessage(nil, s.b[0:l])
+	_, s.rx, s.tx, err = hs.ReadMessage(nil, msg)
 	if err != nil {
 		return fmt.Errorf("error calling ReadMessage in hanshake. %w", err)
 	}
@@ -117,16 +134,16 @@ func (s *Session) handshakeRead(hs *noise.HandshakeState) error {
 	return nil
 }
 
-func (s *Session) handshakeWrite(hs *noise.HandshakeState) error {
+func (s *Session) handshakeWrite(out []byte, hs *noise.HandshakeState) error {
 	var msg []byte
 	var err error
 
-	msg, s.tx, s.rx, err = hs.WriteMessage(s.b[:2], nil)
+	msg, s.tx, s.rx, err = hs.WriteMessage(out[:0], nil)
 	if err != nil {
 		return fmt.Errorf("handshakeWrite failed to WriteMessage. %w", err)
 	}
 
-	err = s.write(len(msg))
+	err = s.write(msg)
 	if err != nil {
 		return fmt.Errorf("failed to write to socket in handshakeWrite. %w", err)
 	}
@@ -134,7 +151,7 @@ func (s *Session) handshakeWrite(hs *noise.HandshakeState) error {
 	return nil
 }
 
-func (s *Session) ClientHandshake() error {
+func (s *Session) ClientHandshake(out []byte) error {
 	hs, err := noise.NewHandshakeState(noise.Config{
 		CipherSuite:   cs,
 		Pattern:       noise.HandshakeXX,
@@ -148,26 +165,26 @@ func (s *Session) ClientHandshake() error {
 	}
 
 	// -> v
-	s.b[0] = 0x1
-	_, err = s.c.Write(s.b[0:1])
+	var v = []byte{0x1}
+	_, err = s.c.Write(v)
 	if err != nil {
 		return fmt.Errorf("ClientHandshake -> v failed. %w", err)
 	}
 
 	// -> e
-	err = s.handshakeWrite(hs)
+	err = s.handshakeWrite(out, hs)
 	if err != nil {
 		return fmt.Errorf("ClientHandshake -> e. %w", err)
 	}
 
 	// <- e, dhee, s, dhse
-	err = s.handshakeRead(hs)
+	err = s.handshakeRead(out, hs)
 	if err != nil {
 		return fmt.Errorf("ClientHandshake <- e, dhee, s, dhse. %w", err)
 	}
 
 	// -> s, dhse
-	err = s.handshakeWrite(hs)
+	err = s.handshakeWrite(out, hs)
 	if err != nil {
 		return fmt.Errorf("ClientHandshake -> s, dhse. %w", err)
 	}
@@ -175,7 +192,7 @@ func (s *Session) ClientHandshake() error {
 	return nil
 }
 
-func (s *Session) ServerHandshake() error {
+func (s *Session) ServerHandshake(out []byte) error {
 	hs, err := noise.NewHandshakeState(noise.Config{
 		CipherSuite:   cs,
 		Pattern:       noise.HandshakeXX,
@@ -191,29 +208,30 @@ func (s *Session) ServerHandshake() error {
 	}
 
 	// -> v
-	_, err = io.ReadFull(s.c, s.b[0:1])
+	var v = []byte{0x0}
+	_, err = io.ReadFull(s.c, v)
 	if err != nil {
 		return fmt.Errorf("ServerHandshake -> v failed. %w", err)
 	}
 
-	if s.b[0] != 0x1 {
-		return fmt.Errorf("unsupported version {}", s.b[0])
+	if v[0] != 0x1 {
+		return fmt.Errorf("unsupported version %d", v[0])
 	}
 
 	// -> e
-	err = s.handshakeRead(hs)
+	err = s.handshakeRead(out, hs)
 	if err != nil {
 		return fmt.Errorf("ServerHandshake -> e failed. %w", err)
 	}
 
 	// <- e, dhee, s, dhse
-	err = s.handshakeWrite(hs)
+	err = s.handshakeWrite(out, hs)
 	if err != nil {
 		return fmt.Errorf("ServerHandshake <- e, dhee, s, dhse failed. %w", err)
 	}
 
 	// -> s, dhse
-	err = s.handshakeRead(hs)
+	err = s.handshakeRead(out, hs)
 	if err != nil {
 		return fmt.Errorf("ServerHandshake -> s, dhse failed. %w", err)
 	}

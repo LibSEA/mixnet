@@ -20,6 +20,7 @@ package entry
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"os"
 
@@ -37,14 +38,16 @@ type cmd struct {
 func (c *cmd) handle(s *session.Session) {
 	defer s.Close()
 
-	err := s.ServerHandshake()
+	var buf = make([]byte, math.MaxInt16)
+
+	err := s.ServerHandshake(buf)
 	if err != nil {
 		c.logger.Info("ServerHandshake failed.", "error", err)
 		return
 	}
 
 	for {
-		msg, err := s.ReadMessage()
+		msg, err := s.ReadMessage(buf)
 		if err != nil {
 			fmt.Println("REadMessage failed", err)
 			return

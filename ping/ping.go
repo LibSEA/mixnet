@@ -19,6 +19,7 @@ package ping
 
 import (
 	"fmt"
+	"math"
 	"net"
 
 	"github.com/LibSEA/mixnet/session"
@@ -37,12 +38,14 @@ func Run(opts Options) {
 
 	s := session.New(conn)
 
-	err = s.ClientHandshake()
+	var buf = make([]byte, math.MaxInt16)
+
+	err = s.ClientHandshake(buf)
 	if err != nil {
 		fmt.Println(err)
 		panic("failed handshake")
 	}
 
-	s.WriteMessage([]byte("ping")) 
+	s.WriteMessage(buf, []byte("ping"))
 
 }
