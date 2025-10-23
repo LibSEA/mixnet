@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cmd
 
 import (
+	"os"
+
 	"github.com/LibSEA/mixnet/ping"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +35,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ping.Run(ping.Options{}) 
+		os.Exit(ping.Run(ping.Options{}))
 	},
 }
 

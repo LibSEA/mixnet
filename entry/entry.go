@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package entry
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"math"
@@ -25,6 +26,7 @@ import (
 	"os"
 
 	"github.com/LibSEA/mixnet/session"
+	"github.com/flynn/noise"
 )
 
 type Options struct {
@@ -49,7 +51,7 @@ func (c *cmd) handle(s *session.Session) {
 	for {
 		msg, err := s.ReadMessage(buf)
 		if err != nil {
-			fmt.Println("REadMessage failed", err)
+			fmt.Println("ReadMessage failed", err)
 			return
 		}
 		fmt.Println(string(msg))
@@ -63,6 +65,14 @@ func Run(opts Options) int {
 	ln, err := net.Listen("tcp", opts.Port)
 	if err != nil {
 		c.logger.Error("couldn't listen", "host:port", opts.Port)
+		return 1
+	}
+
+	cs := noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
+	kp, err := cs.GenerateKeypair(rand.Reader)
+
+	if err != nil {
+		c.logger.Error("error generating keypair. panicking.", "error", err)
 		return 1
 	}
 
@@ -80,6 +90,6 @@ func Run(opts Options) int {
 			continue
 		}
 		cf = 0
-		go c.handle(session.New(conn))
+		go c.handle(session.New(conn, cs, kp))
 	}
 }

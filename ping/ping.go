@@ -18,34 +18,53 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package ping
 
 import (
+	"crypto/rand"
 	"fmt"
+	"log/slog"
 	"math"
 	"net"
+	"time"
 
 	"github.com/LibSEA/mixnet/session"
+	"github.com/flynn/noise"
 )
 
 type Options struct {
 }
 
-func Run(opts Options) {
+func Run(opts Options) int {
 	fmt.Println("ping called")
 
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
-		panic("error connecting")
+		slog.Error("error connecting", "error", err)
+		return 1
+	}
+	cs := noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
+	kp, err := cs.GenerateKeypair(rand.Reader)
+
+	if err != nil {
+		slog.Error("error generating keypair. panicking.", "error", err)
+		return 1
 	}
 
-	s := session.New(conn)
+	s := session.New(conn, cs, kp)
 
 	var buf = make([]byte, math.MaxInt16)
 
 	err = s.ClientHandshake(buf)
 	if err != nil {
-		fmt.Println(err)
-		panic("failed handshake")
+		slog.Error("failed handshake", "error", err)
+		return 1
 	}
 
-	s.WriteMessage(buf, []byte("ping"))
+	err = s.WriteMessage(buf, []byte("ping"))
+	if err != nil {
+		slog.Error("failed write", "error", err)
+		return 1
+	}
+	s.Close()
+	time.Sleep(5 * time.Second)
+	return 0
 
 }

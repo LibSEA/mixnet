@@ -5,33 +5,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log/slog"
 	"math"
-	"net"
 
 	"github.com/flynn/noise"
 )
 
-var cs noise.CipherSuite
-var kp noise.DHKey
-var logger slog.Logger
-
-func init() {
-	var err error
-	cs = noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
-
-	kp, err = cs.GenerateKeypair(rand.Reader)
-
-	if err != nil {
-		slog.Error("error generating keypair. panicking.", "error", err)
-		panic("failed to generate keypair")
-	}
-}
-
 type Session struct {
-	c  net.Conn
-	cs *noise.CipherSuite
-	kp *noise.DHKey
+	c  io.ReadWriteCloser
+	cs noise.CipherSuite
+	kp noise.DHKey
 	rx *noise.CipherState
 	tx *noise.CipherState
 }
@@ -41,8 +23,10 @@ The handshake we have is one byte for protocol version, followed by 2 bytes
 for size, then bytes for message. For every other message it is 2 bytes for
 size then the payload.
 */
-func New(conn net.Conn) *Session {
+func New(conn io.ReadWriteCloser, cs noise.CipherSuite, kp noise.DHKey) *Session {
 	return &Session{
+    	cs: cs,
+    	kp: kp,
 		c: conn,
 	}
 }
@@ -64,7 +48,7 @@ func (s *Session) ReadMessage(out []byte) ([]byte, error) {
 }
 
 func (s *Session) WriteMessage(out []byte, in []byte) error {
-	msg, err := s.tx.Encrypt(out, nil, in)
+	msg, err := s.tx.Encrypt(out[:0], nil, in)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data for writing. %w", err)
 	}
@@ -153,11 +137,11 @@ func (s *Session) handshakeWrite(out []byte, hs *noise.HandshakeState) error {
 
 func (s *Session) ClientHandshake(out []byte) error {
 	hs, err := noise.NewHandshakeState(noise.Config{
-		CipherSuite:   cs,
+		CipherSuite:   s.cs,
 		Pattern:       noise.HandshakeXX,
 		Random:        rand.Reader,
 		Initiator:     true,
-		StaticKeypair: kp,
+		StaticKeypair: s.kp,
 	})
 
 	if err != nil {
@@ -194,11 +178,11 @@ func (s *Session) ClientHandshake(out []byte) error {
 
 func (s *Session) ServerHandshake(out []byte) error {
 	hs, err := noise.NewHandshakeState(noise.Config{
-		CipherSuite:   cs,
+		CipherSuite:   s.cs,
 		Pattern:       noise.HandshakeXX,
 		Random:        rand.Reader,
 		Initiator:     false,
-		StaticKeypair: kp,
+		StaticKeypair: s.kp,
 	})
 	if err != nil {
 		return fmt.Errorf(
