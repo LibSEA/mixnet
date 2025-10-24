@@ -22,22 +22,35 @@ import (
 	"log/slog"
 	"math"
 	"net"
+	"strconv"
 
 	"github.com/LibSEA/mixnet/session"
 	"github.com/flynn/noise"
 )
 
 type Options struct {
+    Host string
+    Port uint16
 }
 
 func Run(opts Options) int {
-	conn, err := net.Dial("tcp", "localhost:8080")
+	conn, err := net.Dial(
+    	"tcp",
+    	net.JoinHostPort(
+        	opts.Host,
+        	strconv.Itoa(int(opts.Port)),
+    	),
+	)
 	if err != nil {
 		slog.Error("error connecting", "error", err)
 		return 1
 	}
 
-	cs := noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
+	cs := noise.NewCipherSuite(
+    	noise.DH25519,
+    	noise.CipherChaChaPoly,
+    	noise.HashBLAKE2b,
+	)
 
 	kp, err := cs.GenerateKeypair(rand.Reader)
 	if err != nil {

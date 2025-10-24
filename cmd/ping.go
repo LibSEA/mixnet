@@ -24,6 +24,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pingOpts = struct {
+    host string
+    port uint16
+} {
+    host: "locahost",
+    port: 8080,
+}
+
+
 // pingCmd represents the ping command
 var pingCmd = &cobra.Command{
 	Use:   "ping",
@@ -35,20 +44,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		os.Exit(ping.Run(ping.Options{}))
+		os.Exit(ping.Run(ping.Options{
+    		Host: pingOpts.host,
+    		Port: pingOpts.port,
+		}))
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(pingCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// pingCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// pingCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	pingCmd.PersistentFlags().StringVar(&pingOpts.host, "host", pingOpts.host, "host to connect to")
+	pingCmd.PersistentFlags().Uint16Var(&pingOpts.port, "port", pingOpts.port, "port to connect to")
 }

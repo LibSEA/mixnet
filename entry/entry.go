@@ -24,13 +24,15 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
 
 	"github.com/LibSEA/mixnet/session"
 	"github.com/flynn/noise"
 )
 
 type Options struct {
-	Port string
+	Port uint16
+	Host string
 }
 
 type cmd struct {
@@ -62,13 +64,20 @@ func Run(opts Options) int {
 	var c = cmd{
 		logger: slog.New(slog.NewTextHandler(os.Stdout, nil)),
 	}
-	ln, err := net.Listen("tcp", opts.Port)
+	ln, err := net.Listen(
+    	"tcp",
+    	net.JoinHostPort(
+        	opts.Host,
+        	strconv.Itoa(int(opts.Port))),
+	)
 	if err != nil {
 		c.logger.Error("couldn't listen", "host:port", opts.Port)
 		return 1
 	}
 
-	cs := noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
+	cs := noise.NewCipherSuite(
+    	noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b,
+	)
 	kp, err := cs.GenerateKeypair(rand.Reader)
 
 	if err != nil {
