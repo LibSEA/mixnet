@@ -44,14 +44,14 @@ func (c *cmd) handle(s *session.Session) {
 
 	err := s.ServerHandshake(buf)
 	if err != nil {
-		c.logger.Info("ServerHandshake failed.", "error", err)
+		c.logger.Warn("ServerHandshake failed.", "error", err)
 		return
 	}
 
 	for {
 		msg, err := s.ReadMessage(buf)
 		if err != nil {
-			fmt.Println("ReadMessage failed", err)
+			c.logger.Warn("ReadMessage failed", "error", err)
 			return
 		}
 		fmt.Println(string(msg))

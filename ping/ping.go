@@ -19,11 +19,9 @@ package ping
 
 import (
 	"crypto/rand"
-	"fmt"
 	"log/slog"
 	"math"
 	"net"
-	"time"
 
 	"github.com/LibSEA/mixnet/session"
 	"github.com/flynn/noise"
@@ -33,16 +31,15 @@ type Options struct {
 }
 
 func Run(opts Options) int {
-	fmt.Println("ping called")
-
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
 		slog.Error("error connecting", "error", err)
 		return 1
 	}
-	cs := noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
-	kp, err := cs.GenerateKeypair(rand.Reader)
 
+	cs := noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
+
+	kp, err := cs.GenerateKeypair(rand.Reader)
 	if err != nil {
 		slog.Error("error generating keypair. panicking.", "error", err)
 		return 1
@@ -51,6 +48,7 @@ func Run(opts Options) int {
 	s := session.New(conn, cs, kp)
 
 	var buf = make([]byte, math.MaxInt16)
+	defer s.Close()
 
 	err = s.ClientHandshake(buf)
 	if err != nil {
@@ -63,8 +61,6 @@ func Run(opts Options) int {
 		slog.Error("failed write", "error", err)
 		return 1
 	}
-	s.Close()
-	time.Sleep(5 * time.Second)
-	return 0
 
+	return 0
 }

@@ -11,6 +11,7 @@ import (
 )
 
 type Session struct {
+	l  []byte
 	c  io.ReadWriteCloser
 	cs noise.CipherSuite
 	kp noise.DHKey
@@ -24,11 +25,25 @@ for size, then bytes for message. For every other message it is 2 bytes for
 size then the payload.
 */
 func New(conn io.ReadWriteCloser, cs noise.CipherSuite, kp noise.DHKey) *Session {
-	return &Session{
-    	cs: cs,
-    	kp: kp,
-		c: conn,
+	ses := Session{
+		cs: cs,
+		kp: kp,
+		c:  conn,
 	}
+
+	var b = [2]byte{0, 0}
+
+	ses.l = b[:]
+
+	return &ses
+}
+
+func (s *Session) Reinit(conn io.ReadWriteCloser, cs noise.CipherSuite, kp noise.DHKey) {
+	s.cs = cs
+	s.c = conn
+	s.kp = kp
+	s.rx = nil
+	s.tx = nil
 }
 
 func (s *Session) ReadMessage(out []byte) ([]byte, error) {
@@ -38,9 +53,7 @@ func (s *Session) ReadMessage(out []byte) ([]byte, error) {
 	}
 
 	b, err := s.rx.Decrypt(nil, nil, msg)
-
 	if err != nil {
-
 		return b, fmt.Errorf("failed to decrypt message. %w", err)
 	}
 
@@ -62,8 +75,7 @@ func (s *Session) WriteMessage(out []byte, in []byte) error {
 }
 
 func (s *Session) read(out []byte) ([]byte, error) {
-	var lb = [2]byte{0, 0}
-	var ls = lb[:]
+	var ls = s.l[:]
 
 	_, err := io.ReadFull(s.c, ls)
 	if err != nil {
@@ -87,8 +99,7 @@ func (s *Session) write(payload []byte) error {
 		return fmt.Errorf("message payload too large.")
 	}
 
-	var lb = [2]byte{0, 0}
-	var ls = lb[:]
+	var ls = s.l[:]
 
 	binary.BigEndian.PutUint16(ls, uint16(len(payload)))
 
