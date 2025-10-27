@@ -71,7 +71,11 @@ func Run(opts Options) int {
         	strconv.Itoa(int(opts.Port))),
 	)
 	if err != nil {
-		c.logger.Error("couldn't listen", "host:port", opts.Port)
+		c.logger.Error(
+    		"couldn't listen",
+    		"port", opts.Port,
+    		"host", opts.Host,
+		)
 		return 1
 	}
 
@@ -81,11 +85,13 @@ func Run(opts Options) int {
 	kp, err := cs.GenerateKeypair(rand.Reader)
 
 	if err != nil {
-		c.logger.Error("error generating keypair. panicking.", "error", err)
+		c.logger.Error("error generating keypair.", "error", err)
 		return 1
 	}
 
 	cf := 0
+
+	c.logger.Info("started")
 
 	for {
 		if cf > 10 {

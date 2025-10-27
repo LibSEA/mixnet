@@ -28,7 +28,7 @@ var pingOpts = struct {
     host string
     port uint16
 } {
-    host: "locahost",
+    host: "localhost",
     port: 8080,
 }
 
