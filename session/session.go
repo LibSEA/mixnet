@@ -113,7 +113,7 @@ func (s *Session) read(out []byte) ([]byte, error) {
 
 func (s *Session) write(payload []byte) error {
 	if len(payload) > math.MaxInt16 {
-		return fmt.Errorf("message payload too large.")
+		return fmt.Errorf("message payload too large")
 	}
 
 	var ls = s.l[:]
@@ -251,6 +251,6 @@ func (s *Session) ServerHandshake(out []byte) error {
 	return nil
 }
 
-func (s *Session) Close() {
-	s.c.Close()
+func (s *Session) Close() error {
+	return s.c.Close()
 }

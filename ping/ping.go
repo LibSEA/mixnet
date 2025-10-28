@@ -29,17 +29,17 @@ import (
 )
 
 type Options struct {
-    Host string
-    Port uint16
+	Host string
+	Port uint16
 }
 
 func Run(opts Options) int {
 	conn, err := net.Dial(
-    	"tcp",
-    	net.JoinHostPort(
-        	opts.Host,
-        	strconv.Itoa(int(opts.Port)),
-    	),
+		"tcp",
+		net.JoinHostPort(
+			opts.Host,
+			strconv.Itoa(int(opts.Port)),
+		),
 	)
 	if err != nil {
 		slog.Error("error connecting", "error", err)
@@ -47,9 +47,9 @@ func Run(opts Options) int {
 	}
 
 	cs := noise.NewCipherSuite(
-    	noise.DH25519,
-    	noise.CipherChaChaPoly,
-    	noise.HashBLAKE2b,
+		noise.DH25519,
+		noise.CipherChaChaPoly,
+		noise.HashBLAKE2b,
 	)
 
 	kp, err := cs.GenerateKeypair(rand.Reader)
@@ -61,7 +61,7 @@ func Run(opts Options) int {
 	s := session.New(conn, cs, kp)
 
 	var buf = make([]byte, math.MaxInt16)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	err = s.ClientHandshake(buf)
 	if err != nil {

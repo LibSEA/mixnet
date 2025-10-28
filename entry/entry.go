@@ -40,7 +40,7 @@ type cmd struct {
 }
 
 func (c *cmd) handle(s *session.Session) {
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	var buf = make([]byte, math.MaxInt16)
 
@@ -65,22 +65,22 @@ func Run(opts Options) int {
 		logger: slog.New(slog.NewTextHandler(os.Stdout, nil)),
 	}
 	ln, err := net.Listen(
-    	"tcp",
-    	net.JoinHostPort(
-        	opts.Host,
-        	strconv.Itoa(int(opts.Port))),
+		"tcp",
+		net.JoinHostPort(
+			opts.Host,
+			strconv.Itoa(int(opts.Port))),
 	)
 	if err != nil {
 		c.logger.Error(
-    		"couldn't listen",
-    		"port", opts.Port,
-    		"host", opts.Host,
+			"couldn't listen",
+			"port", opts.Port,
+			"host", opts.Host,
 		)
 		return 1
 	}
 
 	cs := noise.NewCipherSuite(
-    	noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b,
+		noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b,
 	)
 	kp, err := cs.GenerateKeypair(rand.Reader)
 
