@@ -1,7 +1,35 @@
+/*
+mixnet - tool to create and manage LibSEA mixnets
+Copyright (C) 2025  Liberatory Sofware Engineering Association
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+// Package maplist is a combination of a [pkg/container/list] and a map.
+//
+// Any operation that would have added/inserted a list element whose key
+// already is used will move the original list element to the position the
+// new element would have been added/inserted.
+//
+// For a value to be usable in a maplist the value must implement the
+// [GetKey] interface.
 package maplist
 
 import "container/list"
 
+// GetKey is an interface that must be implemented by a value intended
+// to be used in a maplist.
 type GetKey[K comparable] interface {
 	GetKey() K
 }
@@ -11,6 +39,7 @@ type MapList[K comparable, V GetKey[K]] struct {
 	dict map[K]*list.Element
 }
 
+// New creates a new maplist. To reset a maplist see [MapList.Init].
 func New[K comparable, V GetKey[K]]() *MapList[K, V] {
 	return &MapList[K, V]{
 		list: list.New(),
@@ -18,6 +47,8 @@ func New[K comparable, V GetKey[K]]() *MapList[K, V] {
 	}
 }
 
+// Get attempts to act like indexing into a map. The biggest difference
+// is the optional ok return value is not optional.
 func (ml *MapList[K, V]) Get(key K) (*list.Element, bool) {
 	e, ok := ml.dict[key]
 	return e, ok
@@ -28,14 +59,17 @@ func (ml *MapList[K, V]) Remove(elm *list.Element) V {
 	return ml.list.Remove(elm).(V)
 }
 
+// Back is the same as [pkg/container/list.List.Back]
 func (ml *MapList[K, V]) Back() *list.Element {
 	return ml.list.Back()
 }
 
+// Front is the same as [pkg/container/list.List.Front]
 func (ml *MapList[K, V]) Front() *list.Element {
 	return ml.list.Front()
 }
 
+// Init clears all items from the maplist
 func (ml *MapList[K, V]) Init() *MapList[K, V] {
 	ml.list.Init()
 	clear(ml.dict)
