@@ -1,12 +1,13 @@
 package routingtable
 
 import (
-	"container/list"
-
-	"github.com/LibSEA/mixnet/dht/node"
+	kb "github.com/LibSEA/mixnet/dht/internal/kbucket"
+	n "github.com/LibSEA/mixnet/dht/node"
 )
 
 type RoutingTable struct {
-	self    *node.Node
-	buckets *list.List
+	self    *n.Node
+	buckets []kb.KBucket
 }
+
+
